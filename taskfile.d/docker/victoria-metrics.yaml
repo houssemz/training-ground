@@ -1,0 +1,41 @@
+version: '3'
+
+vars:
+  VICTORIA_METRICS_SERVICE: "victoria-metrics"
+  VICTORIA_METRICS_VOLUME: "{{ .COMPOSE_PROJECT_NAME }}_{{ .VICTORIA_METRICS_SERVICE }}-data"
+
+tasks:
+  configure:
+    run: once
+
+  browser:
+    deps: [start]
+    cmds:
+      - "{{ .BIN_DIR }}/browser -t 30 {{ .VICTORIA_METRICS_SERVICE }}"
+
+  start:
+    deps: [configure]
+    cmds:
+      - "{{ .DOCKER_COMPOSE }} up --no-recreate -d {{ .VICTORIA_METRICS_SERVICE }}"
+
+  stop:
+    cmds:
+      - "{{ .DOCKER_COMPOSE }} kill {{ .VICTORIA_METRICS_SERVICE }}"
+
+  clean:
+    cmds:
+      - "{{ .DOCKER_COMPOSE }} kill {{ .VICTORIA_METRICS_SERVICE }} && {{ .DOCKER_COMPOSE }} rm -fv {{ .VICTORIA_METRICS_SERVICE }}  && docker volume rm -f {{ .VICTORIA_METRICS_VOLUME }} || true"
+  
+  restart:
+    cmds:
+      - task: 'stop'
+      - task: 'start'
+  
+  enter:
+    deps: [configure]
+    cmds:
+      - "{{ .BIN_DIR }}/exec -t 20 {{ .VICTORIA_METRICS_SERVICE }} sh"
+
+  logs:
+    cmds:
+      - "{{ .DOCKER_COMPOSE }} logs -f --tail {{ .LOGS_LINE_NUM }} {{ .VICTORIA_METRICS_SERVICE }}"

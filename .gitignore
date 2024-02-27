@@ -1,0 +1,23 @@
+# Parameters
+/.env
+
+# Docker environments
+docker-compose.override.yaml
+.docker-sync
+/docker/dev/php/xdebug.env
+
+# OS
+**/.DS_Store
+**/Thumbs.db
+
+# Text editors & IDEs
+**/.idea/
+**/nbproject/
+**/*.workspace
+**/*.code-workspace
+
+# Tools
+**/.task/
+
+# secrets
+auth.json

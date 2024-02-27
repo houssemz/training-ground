@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+
+BASEDIR="$( cd "$( dirname "$0" )" && pwd )"
+cd $(dirname ${BASEDIR})
+
+PUBLISHED_PORT=
+PUBLISHED_HOST=localhost
+SCHEME=http
+while true; do
+    case "$1" in
+      -p | --port )
+        shift
+        PUBLISHED_PORT=${1}
+        shift
+        ;;
+      -h | --host )
+        shift
+        PUBLISHED_HOST=${1}
+        shift
+        ;;
+      -s | --secure )
+        shift
+        SCHEME=${SCHEME}s
+        ;;
+      * ) break ;;
+    esac
+done
+
+. ${BASEDIR}/wait-healthy
+
+if [ -z ${PUBLISHED_PORT} ]; then
+    PUBLISHED_PORT=$(docker inspect ${CONTAINER_ID} --format='{{range $p, $conf := .HostConfig.PortBindings}} {{$p}} -> {{(index $conf 0).HostPort}} {{end}}' | head -n 1 | tr -s '\->' ' ' | cut -d ' ' -f 3)
+
+    if [ -z ${PUBLISHED_PORT} ]; then
+        echo "Unable to get the published port for the service ${SERVICE}.";
+        exit 1
+    fi;
+fi;
+
+URL="${SCHEME}://${PUBLISHED_HOST}:${PUBLISHED_PORT}"
+
+if [ Darwin == $(uname) ]; then
+    open "${URL}"
+else
+    xdg-open "${URL}" </dev/null &>/dev/null
+fi;

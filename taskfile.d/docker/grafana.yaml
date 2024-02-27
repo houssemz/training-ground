@@ -1,0 +1,40 @@
+version: '3'
+
+vars:
+  GRAFANA_SERVICE: "grafana"
+
+tasks:
+  configure:
+    run: once
+
+  browser:
+    deps: [start]
+    cmds:
+      - "{{ .BIN_DIR }}/browser -t 30 {{ .GRAFANA_SERVICE }}"
+
+  start:
+    deps: [configure]
+    cmds:
+      - "{{ .DOCKER_COMPOSE }} up --no-recreate -d {{ .GRAFANA_SERVICE }}"
+
+  stop:
+    cmds:
+      - "{{ .DOCKER_COMPOSE }} kill {{ .GRAFANA_SERVICE }}"
+
+  clean:
+    cmds:
+      - "{{ .DOCKER_COMPOSE }} kill {{ .GRAFANA_SERVICE }} && {{ .DOCKER_COMPOSE }} rm -fv {{ .GRAFANA_SERVICE }} || true"
+  
+  restart:
+    cmds:
+      - task: 'stop'
+      - task: 'start'
+  
+  enter:
+    deps: [configure]
+    cmds:
+      - "{{ .BIN_DIR }}/exec -t 20 {{ .GRAFANA_SERVICE }} bash"
+
+  logs:
+    cmds:
+      - "{{ .DOCKER_COMPOSE }} logs -f --tail {{ .LOGS_LINE_NUM }} {{ .GRAFANA_SERVICE }}"

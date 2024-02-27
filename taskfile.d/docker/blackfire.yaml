@@ -1,0 +1,35 @@
+version: '3'
+
+vars:
+  BLACKFIRE_SERVICE: "blackfire"
+
+tasks:
+  configure:
+    run: once
+
+  start:
+    deps: [configure]
+    cmds:
+      - "{{ .DOCKER_COMPOSE }} up --no-recreate -d {{ .BLACKFIRE_SERVICE }}"
+
+  stop:
+    cmds:
+      - "{{ .DOCKER_COMPOSE }} kill {{ .BLACKFIRE_SERVICE }}"
+
+  clean:
+    cmds:
+      - "{{ .DOCKER_COMPOSE }} kill {{ .BLACKFIRE_SERVICE }} && {{ .DOCKER_COMPOSE }} rm -fv {{ .BLACKFIRE_SERVICE }} || true"
+  
+  restart:
+    cmds:
+      - task: 'stop'
+      - task: 'start'
+  
+  enter:
+    deps: [configure]
+    cmds:
+      - "{{ .BIN_DIR }}/exec -t 20 {{ .BLACKFIRE_SERVICE }} sh"
+  
+  logs:
+    cmds:
+      - "{{ .DOCKER_COMPOSE }} logs -f --tail {{ .LOGS_LINE_NUM }} {{ .BLACKFIRE_SERVICE }}"

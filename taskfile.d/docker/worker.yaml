@@ -1,0 +1,74 @@
+version: '3'
+
+vars:
+  WORKER_SERVICE: "worker"
+
+tasks:
+  configure:
+    run: once
+
+  build:
+    deps: ["build-{{ .BUILD_MODE }}"]
+
+  start:
+    deps: [build]
+    cmds:
+      - "{{ .DOCKER_COMPOSE }} up --no-recreate -d {{ .WORKER_SERVICE }}"
+
+  stop:
+    cmds:
+      - "{{ .DOCKER_COMPOSE }} kill {{ .WORKER_SERVICE }}"
+  
+  clean:
+    cmds:
+      - "{{ .DOCKER_COMPOSE }} kill {{ .WORKER_SERVICE }} && {{ .DOCKER_COMPOSE }} rm -fv {{ .WORKER_SERVICE }} || true"
+
+  restart:
+    cmds:
+      - task: 'stop'
+      - task: 'start'
+  
+  enter:
+    cmds:
+      - "{{ .BIN_DIR }}/exec -t 20 {{ .WORKER_SERVICE }} bash"
+  
+  logs:
+    cmds:
+      - "{{ .DOCKER_COMPOSE }} logs -f --tail {{ .LOGS_LINE_NUM }} {{ .WORKER_SERVICE }}"
+
+  build-development:
+    deps: [configure]
+    cmds:
+      - defer: (stty sane || true) &> /dev/null
+      - "{{ .DOCKER_COMPOSE_BUILD }} {{ .WORKER_SERVICE }}"
+      - task: clean
+    vars:
+      BUILD_MODE: development
+    sources:
+      - "{{ .ROOT_DIR }}/docker-compose.override.yaml"
+      - "{{ .ROOT_DIR }}/docker-compose.yaml"
+      - "{{ .ROOT_DIR }}/docker/base/php/**/*"
+      - "{{ .ROOT_DIR }}/docker/dev/php/**/*"
+      - "{{ .ROOT_DIR }}/Dockerfile"
+      - "{{ .ROOT_DIR }}/srv/app/composer.lock"
+
+  build-production:
+    deps: [configure]
+    cmds:
+      - defer: (stty sane || true) &> /dev/null
+      - "{{ .DOCKER_COMPOSE_BUILD }} {{ .WORKER_SERVICE }}"
+      - task: clean
+    vars:
+      BUILD_MODE: production
+    sources:
+      - "{{ .ROOT_DIR }}/docker-compose.override.yaml"
+      - "{{ .ROOT_DIR }}/docker-compose.yaml"
+      - "{{ .ROOT_DIR }}/docker/base/php/**/*"
+      - "{{ .ROOT_DIR }}/docker/prod/php/**/*"
+      - "{{ .ROOT_DIR }}/Dockerfile"
+      - "{{ .ROOT_DIR }}/srv/app/bin/**/*"
+      - "{{ .ROOT_DIR }}/srv/app/composer.lock"
+      - "{{ .ROOT_DIR }}/srv/app/config/**/*"
+      - "{{ .ROOT_DIR }}/srv/app/public/**/*"
+      - "{{ .ROOT_DIR }}/srv/app/src/**/*"
+      - "{{ .ROOT_DIR }}/srv/app/templates/**/*"

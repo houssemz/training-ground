@@ -1,0 +1,15 @@
+version: "3.4"
+
+# Linux development environment override
+services:
+  app:
+    volumes:
+      - ./srv/app:/srv/app
+
+  worker:
+    volumes:
+      - ./srv/app:/srv/app
+
+  nginx:
+    volumes:
+      - ./srv/app/public:/srv/app/public:ro

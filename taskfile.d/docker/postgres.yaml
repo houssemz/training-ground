@@ -1,0 +1,36 @@
+version: '3'
+
+vars:
+  POSTGRES_SERVICE: "postgres"
+  POSTGRES_VOLUME: "{{ .COMPOSE_PROJECT_NAME }}_{{ .POSTGRES_SERVICE }}-data"
+
+tasks:
+  configure:
+    run: once
+
+  start:
+    deps: [configure]
+    cmds:
+      - "{{ .DOCKER_COMPOSE }} up --no-recreate -d {{ .POSTGRES_SERVICE }}"
+
+  stop:
+    cmds:
+      - "{{ .DOCKER_COMPOSE }} kill {{ .POSTGRES_SERVICE }}"
+
+  clean:
+    cmds:
+      - "{{ .DOCKER_COMPOSE }} kill {{ .POSTGRES_SERVICE }} && {{ .DOCKER_COMPOSE }} rm -fv {{ .POSTGRES_SERVICE }} && docker volume rm -f {{ .POSTGRES_VOLUME }} || true"
+  
+  restart:
+    cmds:
+      - task: 'stop'
+      - task: 'start'
+  
+  enter:
+    deps: [configure]
+    cmds:
+      - "{{ .BIN_DIR }}/exec -t 20 {{ .POSTGRES_SERVICE }} bash"
+  
+  logs:
+    cmds:
+      - "{{ .DOCKER_COMPOSE }} logs -f --tail {{ .LOGS_LINE_NUM }} {{ .POSTGRES_SERVICE }}"

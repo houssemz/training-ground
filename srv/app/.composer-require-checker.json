@@ -1,0 +1,42 @@
+{
+    "symbol-whitelist": [
+        "abstract_arg",
+        "array",
+        "bool",
+        "callable",
+        "env",
+        "expr",
+        "false",
+        "float",
+        "inline_service",
+        "int",
+        "iterable",
+        "iterator",
+        "mixed",
+        "never",
+        "null",
+        "object",
+        "param",
+        "parent",
+        "self",
+        "service",
+        "service_closure",
+        "service_locator",
+        "static",
+        "string",
+        "tagged_iterator",
+        "tagged_locator",
+        "true",
+        "void"
+    ],
+    "php-core-extensions": [
+        "Core",
+        "date",
+        "pcre",
+        "Phar",
+        "Reflection",
+        "SPL",
+        "standard"
+    ],
+    "scan-files": []
+}

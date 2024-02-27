@@ -1,0 +1,10 @@
+doctrine_migrations:
+  migrations_paths:
+    # namespace is arbitrary but should be different from App\Migrations
+    # as migrations classes should NOT be autoloaded
+    'DoctrineMigrations': '%kernel.project_dir%/src/Infrastructure/Persistence/Doctrine/Migrations/migrations'
+  enable_profiler: '%kernel.debug%'
+  organize_migrations: BY_YEAR_AND_MONTH
+  services:
+    Doctrine\Migrations\Provider\SchemaProvider: 'App\Infrastructure\Persistence\Doctrine\Migrations\Schema\DoctrineMigrationSchemaProvider'
+  custom_template: '%kernel.project_dir%/src/Infrastructure/Persistence/Doctrine/Migrations/migrations/template.tpl'

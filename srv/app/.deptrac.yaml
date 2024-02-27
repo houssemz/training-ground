@@ -1,0 +1,180 @@
+parameters:
+  paths:
+    - ./src
+  layers:
+    - name: Vendor
+      collectors:
+        - type: bool
+          must:
+            - type: className
+              value: .+\\.*
+          must_not:
+            - type: className
+              value: ^App\\.*
+            - type: className
+              value: ^Symfony\\Component\\Uid\\.*
+            - type: className
+              value: ^Assert\\.*
+            - type: className
+              value: ^Psr\\Log\\.*
+            - type: layer
+              value: HttpUserInterfaceVendor
+            - type: layer
+              value: CliUserInterfaceVendor
+            - type: layer
+              value: WorkerUserInterfaceVendor
+            - type: layer
+              value: SharedUserInterfaceVendor
+
+    - name: HttpUserInterfaceVendor
+      collectors:
+        - type: className
+          value: ^Symfony\\Component\\(Routing|HttpFoundation|HttpKernel)\\.*
+        - type: className
+          value: ^Symfony\\Component\\Security\\(Http|Csrf)\\.*
+        - type: className
+          value: ^Symfony\\Bundle\\FrameworkBundle\\Controller\\.*
+        - type: className
+          value: ^FOS\\RestBundle\\Controller\\.*
+        - type: className
+          value: ^FOS\\RestBundle\\View\\.*
+        - type: className
+          value: ^Sensio\\Bundle\\FrameworkExtraBundle\\Configuration\\.*
+
+    - name: CliUserInterfaceVendor
+      collectors:
+        - type: className
+          value: ^Symfony\\Component\\Console\\.*
+
+    - name: WorkerUserInterfaceVendor
+      collectors:
+        - type: className
+          value: ^Symfony\\Component\\Messenger\\.*
+
+    - name: SharedUserInterfaceVendor
+      collectors:
+        - type: className
+          value: ^Symfony\\Component\\(Validator|Serializer)\\.*
+        - type: className
+          value: ^Symfony\\Component\\Security\\Core\\.*
+
+    - name: HttpUserInterface
+      collectors:
+        - type: className
+          value: ^App\\UserInterface\\Http\\.*
+
+    - name: CliUserInterface
+      collectors:
+        - type: className
+          value: ^App\\UserInterface\\Cli\\.*
+
+    - name: WorkerUserInterface
+      collectors:
+        - type: className
+          value: ^App\\UserInterface\\Worker\\.*
+
+    - name: SharedUserInterface
+      collectors:
+        - type: className
+          value: ^App\\UserInterface\\Shared\\.*
+
+    - name: QueryApplication
+      collectors:
+        - type: className
+          value: ^App\\Application\\Query\\.*
+
+    - name: CommandApplication
+      collectors:
+        - type: className
+          value: ^App\\Application\\Command\\.*
+
+    - name: EventApplication
+      collectors:
+        - type: className
+          value: ^App\\Application\\Event\\.*
+
+    - name: ProjectorApplication
+      collectors:
+        - type: className
+          value: ^App\\Application\\Projector\\.*
+
+    - name: SharedApplication
+      collectors:
+        - type: className
+          value: ^App\\Application\\Shared\\.*
+
+    - name: ReadDomain
+      collectors:
+        - type: className
+          value: ^App\\Domain\\Read\\.*
+
+    - name: WriteDomain
+      collectors:
+        - type: className
+          value: ^App\\Domain\\Write\\.*
+
+    - name: SharedDomain
+      collectors:
+        - type: className
+          value: ^App\\Domain\\Shared\\.*
+
+    - name: Infrastructure
+      collectors:
+        - type: className
+          value: ^App\\Infrastructure\\.*
+
+  ruleset:
+    Infrastructure:
+      - Vendor
+      - +CliUserInterface
+      - +HttpUserInterface
+      - +SharedUserInterface
+      - +WorkerUserInterface
+
+    HttpUserInterface:
+      - +SharedUserInterface
+      - HttpUserInterfaceVendor
+
+    CliUserInterface:
+      - +SharedUserInterface
+      - CliUserInterfaceVendor
+
+    WorkerUserInterface:
+      - +SharedUserInterface
+      - WorkerUserInterfaceVendor
+
+    SharedUserInterface:
+      - +QueryApplication
+      - +CommandApplication
+      - +ProjectorApplication
+      - +EventApplication
+      - SharedUserInterfaceVendor
+
+    SharedApplication:
+      - +SharedDomain
+
+    QueryApplication:
+      - +ReadDomain
+      - +SharedApplication
+
+    CommandApplication:
+      - +WriteDomain
+      - +SharedApplication
+
+    EventApplication:
+      - +WriteDomain
+      - +ReadDomain
+      - +SharedApplication
+      - +CommandApplication
+
+    ProjectorApplication:
+      - +WriteDomain
+      - +ReadDomain
+      - +SharedApplication
+      - +EventApplication
+
+    WriteDomain:
+      - +SharedDomain
+
+    ReadDomain:
+      - +SharedDomain

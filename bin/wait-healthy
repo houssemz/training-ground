@@ -1,0 +1,113 @@
+#!/usr/bin/env bash
+BASEDIR="$( cd "$( dirname "$0" )" && pwd )"
+DISABLE_TTY=${DISABLE_TTY:-0} # When running a php command inside a docker container with tty, the exit code will always be 129. Use DISABLE_TTY=1 .
+
+cd $(dirname ${BASEDIR})
+
+if [ -z "${DOCKER_COMPOSE}" ]; then
+  echo 'the "DOCKER_COMPOSE" env var must be defined and not empty.'
+  exit 1
+fi
+
+if [ -z "${COMPOSE_PROJECT_NAME}" ]; then
+  echo 'the "COMPOSE_PROJECT_NAME" must be must be defined and not empty.'
+  exit 1
+fi
+
+TIMEOUT=120
+FORCE=0
+
+while true; do
+    case "$1" in
+      -t | --timeout )
+        shift
+        TIMEOUT=${1}
+        shift
+        ;;
+      -f | --force )
+        shift
+        FORCE=1
+        ;;
+      -- ) shift; break ;;
+      * ) break ;;
+    esac
+done
+
+if [ "$#" -eq 0 ]; then
+  echo "Please provide a service name..."
+  exit 1
+fi
+
+SERVICE=${1}
+shift
+
+if [ $# -eq 0 ]; then
+    set -- "sh"
+fi
+
+if ! docker ps --filter "label=com.docker.compose.service=${SERVICE}" --filter "label=com.docker.compose.project=${COMPOSE_PROJECT_NAME}" --format "{{ .Status }}" | grep -q Up; then
+    echo "The ${SERVICE} container is not running, starting it."
+    ${DOCKER_COMPOSE} up --no-recreate -d ${SERVICE}
+fi
+CONTAINER_ID=$(docker ps --filter "label=com.docker.compose.service=${SERVICE}" --filter "label=com.docker.compose.project=${COMPOSE_PROJECT_NAME}" -q)
+ATTEMPTS=0
+while :
+do
+  status=$(docker inspect ${CONTAINER_ID} --format "{{ .State.Status }}")
+  case "$status" in
+    running)
+      ;;
+    *)
+      echo "\n\033[31mUnable to start the service "${SERVICE}". status "${status}"\033[0m\n"
+      ${DOCKER_COMPOSE} ps
+      ${DOCKER_COMPOSE} logs --tail 200 ${SERVICE}
+      exit 1
+      ;;
+  esac
+
+  health=$(docker inspect ${CONTAINER_ID} --format "{{ .State.Health.Status }}" 2>/dev/null)
+  case "$health" in
+    starting)
+      ;;
+    healthy)
+      break
+      ;;
+    "")
+      break
+      ;;
+    unhealthy)
+      echo "\n\033[31m[Warning] the service "${SERVICE}" is unhealthy\033[0m\n"
+      if [ "${FORCE}" -eq "1" ]; then
+        break;
+      fi;
+      ${DOCKER_COMPOSE} ps
+      ${DOCKER_COMPOSE} logs --tail 200 ${SERVICE}
+      exit 1;
+      ;;
+    *)
+      echo "\n\033[31mUnable to start the service \"${SERVICE}\". unknown health \"${health}\"\033[0m\n"
+      if [ "${FORCE}" -eq "1" ]; then
+        break;
+      fi;
+      ${DOCKER_COMPOSE} ps
+      ${DOCKER_COMPOSE} logs --tail 200 ${SERVICE}
+      exit 1;
+      ;;
+  esac
+  if [ "${ATTEMPTS}" -gt ${TIMEOUT} ]; then
+    echo "\n\033[31mUnable to start the service "${SERVICE}"\033[0m\n"
+    ${DOCKER_COMPOSE} ps
+    ${DOCKER_COMPOSE} logs --tail 200 ${SERVICE}
+    exit 1;
+  fi;
+  if [ "${ATTEMPTS}" -eq 0 ]; then
+    printf "Waiting for ${SERVICE} to be healthy "
+  fi;
+  ATTEMPTS=$((${ATTEMPTS} + 1))
+  sleep 1
+  printf .
+done
+
+if [ "${ATTEMPTS}" -gt 0 ]; then
+  printf " OK\n"
+fi;

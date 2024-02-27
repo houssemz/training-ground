@@ -1,0 +1,17 @@
+version: "3.4"
+
+# OSX development environment override
+services:
+  app:
+    volumes:
+      - ./srv/app:/srv/app:rw,cached
+      - /srv/app/var
+
+  worker:
+    volumes:
+      - ./srv/app:/srv/app:rw,cached
+      - /srv/app/var
+
+  nginx:
+    volumes:
+      - ./srv/app/public:/srv/app/public:ro

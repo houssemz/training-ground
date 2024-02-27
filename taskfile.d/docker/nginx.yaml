@@ -1,0 +1,71 @@
+version: '3'
+
+vars:
+  NGINX_SERVICE: "nginx"
+
+tasks:
+  configure:
+    run: once
+
+  browser:
+    deps: [start]
+    cmds:
+      - "{{ .BIN_DIR }}/browser -t 30 {{ .NGINX_SERVICE }}"
+
+  build:
+    deps: [ "build-{{ .BUILD_MODE }}" ]
+
+  start:
+    deps: [build]
+    cmds:
+      - "{{ .DOCKER_COMPOSE }} up --no-recreate -d {{ .NGINX_SERVICE }}"
+
+  stop:
+    cmds:
+      - "{{ .DOCKER_COMPOSE }} kill {{ .NGINX_SERVICE }}"
+
+  clean:
+    cmds:
+      - "{{ .DOCKER_COMPOSE }} kill {{ .NGINX_SERVICE }} && {{ .DOCKER_COMPOSE }} rm -fv {{ .NGINX_SERVICE }} || true"
+
+  restart:
+    cmds:
+      - task: 'stop'
+      - task: 'start'
+
+  enter:
+    deps: [build]
+    cmds:
+      - "{{ .BIN_DIR }}/exec -t 20 {{ .NGINX_SERVICE }} sh"
+
+  logs:
+    cmds:
+      - "{{ .DOCKER_COMPOSE }} logs -f --tail {{ .LOGS_LINE_NUM }} {{ .NGINX_SERVICE }}"
+
+  build-development:
+    deps: [configure]
+    cmds:
+      - defer: (stty sane || true) &> /dev/null
+      - "{{ .DOCKER_COMPOSE_BUILD }} {{ .NGINX_SERVICE }}"
+      - task: clean
+    vars:
+      BUILD_MODE: development
+    sources:
+      - "{{ .ROOT_DIR }}/docker-compose.override.yaml"
+      - "{{ .ROOT_DIR }}/docker-compose.yaml"
+      - "{{ .ROOT_DIR }}/docker/base/nginx/**/*"
+      - "{{ .ROOT_DIR }}/Dockerfile"
+
+  build-production:
+    deps: [configure]
+    cmds:
+      - defer: (stty sane || true) &> /dev/null
+      - "{{ .DOCKER_COMPOSE_BUILD }} {{ .NGINX_SERVICE }}"
+      - task: clean
+    vars:
+      BUILD_MODE: production
+    sources:
+      - "{{ .ROOT_DIR }}/docker-compose.override.yaml"
+      - "{{ .ROOT_DIR }}/docker-compose.yaml"
+      - "{{ .ROOT_DIR }}/docker/base/nginx/**/*"
+      - "{{ .ROOT_DIR }}/Dockerfile"

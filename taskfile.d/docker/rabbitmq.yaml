@@ -1,0 +1,41 @@
+version: '3'
+
+vars:
+  RABBITMQ_SERVICE: "rabbitmq"
+  RABBITMQ_VOLUME: "{{ .COMPOSE_PROJECT_NAME }}_{{ .RABBITMQ_SERVICE }}-data"
+
+tasks:
+  configure:
+    run: once
+
+  browser:
+    deps: [ start ]
+    cmds:
+      - "{{ .BIN_DIR }}/browser -t 30 {{ .RABBITMQ_SERVICE }}"
+
+  start:
+    deps: [configure]
+    cmds:
+      - "{{ .DOCKER_COMPOSE }} up --no-recreate -d {{ .RABBITMQ_SERVICE }}"
+
+  stop:
+    cmds:
+      - "{{ .DOCKER_COMPOSE }} kill {{ .RABBITMQ_SERVICE }}"
+
+  clean:
+    cmds:
+      - "{{ .DOCKER_COMPOSE }} kill {{ .RABBITMQ_SERVICE }} && {{ .DOCKER_COMPOSE }} rm -fv {{ .RABBITMQ_SERVICE }} && docker volume rm -f {{ .RABBITMQ_VOLUME }} || true"
+  
+  restart:
+    cmds:
+      - task: 'stop'
+      - task: 'start'
+  
+  enter:
+    deps: [configure]
+    cmds:
+      - "{{ .BIN_DIR }}/exec -t 20 {{ .RABBITMQ_SERVICE }} bash"
+  
+  logs:
+    cmds:
+      - "{{ .DOCKER_COMPOSE }} logs -f --tail {{ .LOGS_LINE_NUM }} {{ .RABBITMQ_SERVICE }}"

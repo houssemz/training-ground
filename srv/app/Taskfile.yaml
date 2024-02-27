@@ -1,0 +1,157 @@
+# https://taskfile.dev
+
+version: '3'
+
+vars:
+  APP_EXEC:
+    sh: if [ -x "$(command -v docker)" ]; then echo '{{ .BIN_DIR }}/exec -t 60 app sh -c'; else echo 'sh -c'; fi
+
+tasks:
+  server-dump:
+    cmds:
+      - '{{ .APP_EXEC }} "bin/console server:dump"'
+
+  server-log:
+    cmds:
+      - '{{ .APP_EXEC }} "bin/console server:log -vvv"'
+
+  cache-clear:
+    cmds:
+      - '{{ .APP_EXEC }} "{{ .ENV_VARS }} php -d memory_limit=-1 bin/console cache:clear"'
+
+  deps-install:
+    sources:
+      - '{{ default "" .ROOT_DIR -}}/srv/app/composer.lock'
+    generates:
+      - '{{ default "" .ROOT_DIR -}}/srv/app/vendor/**/*'
+    cmds:
+      - '{{ .APP_EXEC }} "composer install"'
+
+  deps-update:
+    cmds:
+      - '{{ .APP_EXEC }} "composer update"'
+      - task: fix-php-cs
+
+  deps-require:
+    cmds:
+      - '{{ .APP_EXEC }} "composer require {{ .CLI_ARGS }}"'
+      - task: fix-php-cs
+
+  test:
+    cmds:
+      - task: test-lint
+      - task: test-static-analysis
+      - task: test-unit
+      - task: test-functional
+
+  test-lint:
+    deps: [test-php-cs, test-yaml-lint, test-dic-lint]
+
+  test-static-analysis:
+    deps: [test-composer, test-phpstan, test-deptrac]
+
+  test-unit:
+    deps: [test-phpspec]
+
+  test-functional:
+    vars:
+      ENV_VARS: "APP_DEBUG=0 APP_ENV=test"
+    cmds:
+      - defer: (stty sane || true) &> /dev/null
+      - task: cache-clear
+        vars: { ENV_VARS: '{{ .ENV_VARS }}' }
+      - task: postgres-db-reset
+        vars: { ENV_VARS: '{{ .ENV_VARS }}' }
+      - task: test-phpunit
+        vars: { ENV_VARS: '{{ .ENV_VARS }}' }
+
+  test-phpunit:
+    cmds:
+      - defer: (stty sane || true) &> /dev/null
+      - '{{ .APP_EXEC }} "APP_DEBUG=0 php -d memory_limit=-1 bin/phpunit --stop-on-failure --testdox {{ .CLI_ARGS }}"'
+
+  test-phpspec:
+    cmds:
+      - defer: (stty sane || true) &> /dev/null
+      - '{{ .APP_EXEC }} "APP_DEBUG=0 php -d memory_limit=-1 vendor/bin/phpspec --format=pretty -vvv run {{ .CLI_ARGS }}"'
+
+  test-phpstan:
+    cmds:
+      - defer: (stty sane || true) &> /dev/null
+      - task: cache-clear
+        vars: { ENV_VARS: "APP_DEBUG=1 APP_ENV=dev" }
+      - '{{ .APP_EXEC }} "vendor/bin/phpstan analyse src -c .phpstan.neon --memory-limit=-1"'
+
+  test-yaml-lint:
+    cmds:
+      - defer: (stty sane || true) &> /dev/null
+      - '{{ .APP_EXEC }} "yamllint -c .yamllint.yaml ."'
+      - '{{ .APP_EXEC }} "bin/console lint:yaml config"'
+
+  test-dic-lint:
+    cmds:
+      - defer: (stty sane || true) &> /dev/null
+      - '{{ .APP_EXEC }} "bin/console lint:container"'
+
+  test-php-cs:
+    cmds:
+      - defer: (stty sane || true) &> /dev/null
+      - '{{ .APP_EXEC }} "php-cs-fixer fix --dry-run --verbose --diff"'
+
+  test-composer:
+    cmds:
+      - defer: (stty sane || true) &> /dev/null
+      - '{{ .APP_EXEC }} "local-php-security-checker"'
+      - '{{ .APP_EXEC }} "composer normalize --dry-run"'
+      - '{{ .APP_EXEC }} "composer validate"'
+      - '{{ .APP_EXEC }} "XDEBUG_MODE=off composer-require-checker check --config-file=/srv/app/.composer-require-checker.json -vvv --ignore-parse-errors"'
+
+  test-deptrac:
+    cmds:
+      - defer: (stty sane || true) &> /dev/null
+      - '{{ .APP_EXEC }} "deptrac analyze --config-file=.deptrac.yaml"'
+
+  fix-php-cs:
+    cmds:
+      - '{{ .APP_EXEC }} "php-cs-fixer fix --verbose --diff"'
+
+  fix-composer-normalize:
+    cmds:
+      - '{{ .APP_EXEC }} "composer normalize"'
+
+  postgres-db-drop:
+    cmds:
+      - '{{ .APP_EXEC }} "{{ .ENV_VARS }} bin/console doctrine:database:drop --if-exists --force"'
+
+  postgres-db-create:
+    cmds:
+      - '{{ .APP_EXEC }} "{{ .ENV_VARS }} bin/console doctrine:database:create --if-not-exists"'
+
+  postgres-db-migrate:
+    cmds:
+      - '{{ .APP_EXEC }} "{{ .ENV_VARS }} bin/console doctrine:migration:migrate --no-interaction --allow-no-migration"'
+
+  postgres-db-diff:
+    cmds:
+      - '{{ .APP_EXEC }} "{{ .ENV_VARS }} bin/console doctrine:migration:diff"'
+
+  postgres-db-reset:
+    cmds:
+      - task: postgres-db-drop
+        vars: { ENV_VARS: '{{ .ENV_VARS }}' }
+      - task: postgres-db-create
+        vars: { ENV_VARS: '{{ .ENV_VARS }}' }
+      - task: postgres-db-migrate
+        vars: { ENV_VARS: '{{ .ENV_VARS }}' }
+
+  cli:
+    cmds:
+      - '{{ .APP_EXEC }} "bin/console {{ .CLI_ARGS }}"'
+
+  blackfire-cli:
+    cmds:
+      - '{{ .APP_EXEC }} "blackfire run bin/console {{ .CLI_ARGS }}"'
+
+  blackfire-curl:
+    cmds:
+      - '{{ .APP_EXEC }} "blackfire curl {{ .CLI_ARGS }}"'

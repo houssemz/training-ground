@@ -1,0 +1,40 @@
+version: '3'
+
+vars:
+  REDIS_SERVICE: "redis"
+
+tasks:
+  configure:
+    run: once
+
+  start:
+    deps: [configure]
+    cmds:
+      - "{{ .DOCKER_COMPOSE }} up --no-recreate -d {{ .REDIS_SERVICE }}"
+
+  stop:
+    cmds:
+      - "{{ .DOCKER_COMPOSE }} kill {{ .REDIS_SERVICE }}"
+
+  clean:
+    cmds:
+      - "{{ .DOCKER_COMPOSE }} kill {{ .REDIS_SERVICE }} && {{ .DOCKER_COMPOSE }} rm -fv {{ .REDIS_SERVICE }} || true"
+  
+  restart:
+    cmds:
+      - task: 'stop'
+      - task: 'start'
+  
+  enter:
+    deps: [configure]
+    cmds:
+      - "{{ .BIN_DIR }}/exec -t 20 {{ .REDIS_SERVICE }} bash"
+
+  cli:
+    deps: [configure]
+    cmds:
+      - "{{ .BIN_DIR }}/exec -t 20 {{ .REDIS_SERVICE }} bash -c 'redis-cli {{ .CLI_ARGS }}'"
+
+  logs:
+    cmds:
+      - "{{ .DOCKER_COMPOSE }} logs -f --tail {{ .LOGS_LINE_NUM }} {{ .REDIS_SERVICE }}"

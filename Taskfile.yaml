@@ -1,0 +1,163 @@
+# https://taskfile.dev
+
+version: '3'
+
+includes: 
+  app: ./srv/app/Taskfile.yaml
+  app:docker: ./taskfile.d/docker/app.yaml
+  blackfire:docker: ./taskfile.d/docker/blackfire.yaml
+  grafana:docker: ./taskfile.d/docker/grafana.yaml
+  linux: ./taskfile.d/os/linux.yaml
+  nginx:docker: ./taskfile.d/docker/nginx.yaml
+  osx: ./taskfile.d/os/osx.yaml
+  postgres:docker: ./taskfile.d/docker/postgres.yaml
+  rabbitmq:docker: ./taskfile.d/docker/rabbitmq.yaml
+  redis:docker: ./taskfile.d/docker/redis.yaml
+  victoria-metrics:docker: ./taskfile.d/docker/victoria-metrics.yaml
+  worker:docker: ./taskfile.d/docker/worker.yaml
+
+vars:
+  ROOT_DIR: "{{ .PWD }}"
+  BIN_DIR: "{{ .ROOT_DIR }}/bin"
+  DOCKER_COMPOSE:
+    sh: if [ ! -z "${DOCKER_COMPOSE}" ]; then echo "${DOCKER_COMPOSE}"; elif ([ "$(docker compose)" ]) 2>/dev/null; then echo "docker compose"; else echo "docker-compose"; fi
+  COMPOSE_PROJECT_NAME:
+    sh: if [ ! -z "${COMPOSE_PROJECT_NAME}" ]; then echo "${COMPOSE_PROJECT_NAME}"; else echo $(basename `pwd` | tr '[:upper:]' '[:lower:]' | sed -e 's/[^-_a-z0-9]//g'); fi
+  DOCKER_COMPOSE_BUILD: "{{ .DOCKER_COMPOSE }} build"
+  LOGS_LINE_NUM: 200
+  OS_NAME:
+    sh: if [ "darwin" == "{{ OS }}" ]; then echo "osx"; else echo "{{ OS }}"; fi
+
+env:
+  BUILD_MODE: '{{ default "development" .BUILD_MODE }}'
+  DOCKER_COMPOSE: '{{ .DOCKER_COMPOSE }}'
+  HOST_GID:
+    sh: 'echo ${HOST_GID:-`id -g`}'
+  HOST_UID:
+    sh: 'echo ${HOST_UID:-`id -u`}'
+  COMPOSE_DOCKER_CLI_BUILD: '{{ default "1" .COMPOSE_DOCKER_CLI_BUILD }}'
+  DOCKER_BUILDKIT: '{{ default "1" .DOCKER_BUILDKIT }}'
+  COMPOSE_PROJECT_NAME: '{{ .COMPOSE_PROJECT_NAME }}'
+
+tasks:
+  default:
+    deps: [docker:start]
+    cmds:
+      - task: nginx:docker:browser
+
+  configure:
+    run: once
+    deps: ["dotenv:configure", "xdebug-dotenv:configure", "docker:configure", "{{ .OS_NAME }}:configure", "composer-auth:configure"]
+
+  composer-auth:configure:
+    run: once
+    cmds:
+      - cmd: |
+          echo "Need a github token to pull private package"
+          read -p "GITHUB_TOKEN: " TOKEN
+          echo "Need private packages credentials to pull private package"
+          read -p "PHP_PACKAGES_USER: " PHP_PACKAGES_USER
+          read -p "PHP_PACKAGES_PASSWORD: " PHP_PACKAGES_PASSWORD
+          cat <<EOF > srv/app/auth.json 
+          {
+            "github-oauth": {
+              "github.com": "$GITHUB_TOKEN"
+            },
+            "http-basic": {
+              "php-packages.shippeo.cloud": {
+                "username": "$PHP_PACKAGES_USER",
+                "password": "$PHP_PACKAGES_PASSWORD"
+              }
+            }
+          }
+          EOF
+        silent: true
+    interactive: true
+    status:
+      - test -f srv/app/auth.json
+
+  dotenv:configure:
+    run: once
+    vars:
+      DOT_ENV_DIST_FILE: .env.dist
+    cmds:
+      - 'cp {{ .DOT_ENV_DIST_FILE }} .env'
+    status:
+      - '[ -f .env ] || [ ! -f {{ .DOT_ENV_DIST_FILE }} ]'
+
+  xdebug-dotenv:configure:
+    run: once
+    vars:
+      XDEBUG_DOT_ENV_DIST_FILE: docker/dev/php/xdebug.env.dist
+    cmds:
+      - 'cp {{ .XDEBUG_DOT_ENV_DIST_FILE }} docker/dev/php/xdebug.env'
+    status:
+      - '[ -f docker/dev/php/xdebug.env ] || [ ! -f {{ .XDEBUG_DOT_ENV_DIST_FILE }} ]'
+
+  test:
+    deps: [docker:start]
+    cmds: 
+      - defer: (stty sane || true) &> /dev/null
+      - task: app:test
+
+  docker:
+    cmds:
+      - "{{ .DOCKER_COMPOSE }} {{.CLI_ARGS}}"
+
+  docker:login:
+    desc: "Login into Artifact"
+    cmds:
+      - gcloud auth print-access-token | docker login -u oauth2accesstoken --password-stdin https://europe-docker.pkg.dev
+
+  docker:configure:
+    run: once
+    vars:
+      DOCKER_COMPOSE_OVERRIDE_DIST_FILE:
+        sh: >-
+          if [ -f docker-compose.override.{{ .OS_NAME }}.yaml.dist ]; then
+            echo "docker-compose.override.{{ .OS_NAME }}.yaml.dist";
+          else
+            echo "docker-compose.override.yaml.dist";
+          fi
+    cmds:
+      - 'cp "{{ .DOCKER_COMPOSE_OVERRIDE_DIST_FILE }}" docker-compose.override.yaml'
+    status:
+      - '[ -f docker-compose.override.yaml ] || [ ! -f {{ .DOCKER_COMPOSE_OVERRIDE_DIST_FILE }} ] || [ "${DISABLE_COMPOSE_OVERRIDE}" -eq 1 ]'
+
+  docker:build:
+    deps: [configure]
+    cmds:
+      - task: app:docker:build
+      - task: nginx:docker:build
+
+  docker:start:
+    deps: [docker:build]
+    cmds:
+      - task: "app:deps-install"
+      - "{{ .DOCKER_COMPOSE }} up --no-recreate -d"
+
+  docker:stop:
+    cmds:
+      - "{{ .DOCKER_COMPOSE }} stop"
+
+  docker:restart:
+    cmds:
+      - task: docker:stop
+      - task: docker:start
+
+  docker:clean:
+    cmds:
+      - "{{ .DOCKER_COMPOSE }} down -v --remove-orphans"
+      - "rm -rf {{ .ROOT_DIR }}/.task/*"
+      - "rm -f {{ .ROOT_DIR }}/docker-compose.override.yaml"
+      - "rm -f {{ .ROOT_DIR }}/.env"
+
+  docker:browser:
+    deps: [configure]
+    cmds:
+      - "{{ .BIN_DIR }}/browser {{.CLI_ARGS}}"
+
+  docker:ps:
+    deps: [configure]
+    cmds:
+      - "{{ .DOCKER_COMPOSE }} ps"

@@ -1,0 +1,23 @@
+apc.enable_cli     = ${PHP_APC_ENABLE_CLI}
+date.timezone      = ${PHP_DATE_TIMEZONE}
+session.auto_start = ${PHP_SESSION_AUTO_START}
+short_open_tag     = ${PHP_SHORT_OPEN_TAG}
+memory_limit       = ${PHP_MEMORY_LIMIT}
+
+# https://symfony.com/doc/current/performance.html
+opcache.enable                  = ${PHP_OPCACHE_ENABLE}
+opcache.enable_cli              = ${PHP_OPCACHE_ENABLE_CLI}
+opcache.file_cache              = ${PHP_OPCACHE_FILE_CACHE}
+opcache.file_cache_only         = ${PHP_OPCACHE_FILE_CACHE_ONLY}
+opcache.interned_strings_buffer = ${PHP_OPCACHE_INTERNED_STRINGS_BUFFER}
+opcache.jit_buffer_size         = ${PHP_OPCACHE_JIT_BUFFER_SIZE}
+opcache.max_accelerated_files   = ${PHP_OPCACHE_MAX_ACCELERATED_FILES}
+opcache.memory_consumption      = ${PHP_OPCACHE_MEMORY_CONSUMPTION}
+opcache.preload                 = ${PHP_OPCACHE_PRELOAD}
+opcache.preload_user            = ${PHP_OPCACHE_PRELOAD_USER}
+opcache.validate_timestamps     = ${PHP_OPCACHE_VALIDATE_TIMESTAMPS}
+
+post_max_size = ${PHP_POST_MAX_SIZE}
+realpath_cache_size = ${PHP_REALPATH_CACHE_SIZE}
+realpath_cache_ttl = ${PHP_REALPATH_CACHE_TTL}
+upload_max_filesize = ${PHP_UPLOAD_MAX_FILESIZE}

@@ -1,0 +1,6 @@
+shippeo_metrics:
+  metrics:
+    enabled: '%env(bool:METRIC_COLLECTOR_ENABLED)%'
+    namespace: '%env(METRICS_NAMESPACE)%'
+    host: '%env(METRICS_HOST)%'
+    port: '%env(int:METRICS_PORT)%'

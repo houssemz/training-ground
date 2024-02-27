@@ -1,0 +1,163 @@
+version: "3.9"
+
+x-common-args: &common-args
+  BUILD_MODE: "${BUILD_MODE:-development}"
+  HOST_GID: "${HOST_GID:-1000}"
+  HOST_UID: "${HOST_UID:-1000}"
+
+services:
+  app:
+    image: ${APP_IMAGE:-app}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        <<: *common-args
+      target: app
+      secrets:
+        - composer_auth
+    restart: unless-stopped
+    environment:
+      APP_DISABLED_EXTENSIONS: "${APP_DISABLED_EXTENSION}"
+      BLACKFIRE_SERVER_ID: ~
+      BLACKFIRE_SERVER_TOKEN: ~
+      BLACKFIRE_CLIENT_ID: ~
+      BLACKFIRE_CLIENT_TOKEN: ~
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    extra_hosts: # needed for xdebug
+      - "host.docker.internal:host-gateway"
+    env_file:
+      - .env
+      - docker/dev/php/xdebug.env
+
+  worker:
+    image: ${WORKER_IMAGE:-worker}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        <<: *common-args
+      target: worker
+      secrets:
+        - composer_auth
+    restart: unless-stopped
+    environment:
+      WORKER_TRANSPORT: "my-first-transport my-second-transport"
+      WORKER_IDLE_TIME: 0.1
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    env_file:
+      - .env
+      - docker/dev/php/xdebug.env
+
+  nginx:
+    image: ${NGINX_IMAGE:-nginx}
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: nginx
+      secrets:
+        - composer_auth
+    environment:
+      UPSTREAM: "${UPSTREAM}"
+    depends_on:
+      app:
+        condition: service_healthy
+    restart: unless-stopped
+    ports:
+      - target: 8080
+        published: "${NGINX_PORT}"
+        protocol: tcp
+  
+  postgres:
+    image: postgres:14.1-alpine
+    restart: unless-stopped
+    volumes:
+      - postgres-data:/var/lib/postgresql/data:rw
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-p", "5432", "-h", "0.0.0.0" ]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+      start_period: 120s
+    environment:
+      POSTGRES_DB: ~
+      POSTGRES_PASSWORD: ~
+      POSTGRES_USER: ~
+    ports:
+      - target: 5432
+        published: "${POSTGRES_PORT}"
+        protocol: tcp
+
+  rabbitmq:
+    image: rabbitmq:3.9.16-management-alpine
+    healthcheck:
+      test: [ "CMD", "nc", "-z", "localhost", "5672" ]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+    ports:
+      - target: 15672
+        published: "${RABBITMQ_ADMIN_PORT}"
+        protocol: tcp
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+
+  blackfire:
+    environment:
+      BLACKFIRE_SERVER_ID: ~
+      BLACKFIRE_SERVER_TOKEN: ~
+      BLACKFIRE_CLIENT_ID: ~
+      BLACKFIRE_CLIENT_TOKEN: ~
+      BLACKFIRE_DISABLE_LEGACY_PORT: "true"
+    image: blackfire/blackfire:2
+
+  redis:
+    image: redis:5.0.5
+    healthcheck:
+      test: [ "CMD", "redis-cli","ping" ]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+
+
+  victoria-metrics:
+    image: victoriametrics/victoria-metrics:v1.81.2
+    volumes:
+      - victoria-metrics-data:/victoria-metrics-data
+    command: ["--influxMeasurementFieldSeparator", "_", "--influxListenAddr=:8089"]
+    ports:
+      - target: 8428
+        published: "${VICTORIA_METRICS_TCP_PORT}"
+        protocol: tcp
+
+  grafana:
+    image: grafana/grafana:9.1.6
+    depends_on:
+      - victoria-metrics
+    volumes:
+      - ./docker/dev/grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
+      - ./docker/dev/grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
+    ports:
+      - target: 3000
+        published: "${GRAFANA_PORT}"
+        protocol: tcp
+volumes:
+  postgres-data: ~
+  rabbitmq-data: ~
+  victoria-metrics-data: ~
+
+secrets:
+  composer_auth:
+    file: ./srv/app/auth.json

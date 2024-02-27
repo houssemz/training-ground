@@ -1,0 +1,24 @@
+parameters:
+    tmpDir: %currentWorkingDirectory%/.phpstan.cache
+    level: max
+    inferPrivatePropertyTypeFromConstructor: true
+    checkGenericClassInNonGenericObjectType: false
+    checkFunctionNameCase: true
+    checkInternalClassCaseSensitivity: true
+    checkUninitializedProperties: false
+    checkDynamicProperties: true
+    polluteScopeWithAlwaysIterableForeach: false
+    polluteScopeWithLoopInitialAssignments: false
+    checkAlwaysTrueInstanceof: true
+    checkAlwaysTrueStrictComparison: true
+    checkExplicitMixedMissingReturn: true
+    reportStaticMethodSignatures: true
+    parallel:
+        maximumNumberOfProcesses: 2
+    symfony:
+        container_xml_path: '%rootDir%/../../../var/cache/dev/App_KernelDevDebugContainer.xml'
+    ignoreErrors:
+        - path: %currentWorkingDirectory%/src/Kernel.php
+          message: '#^Method App\\Kernel\:\:configureContainer\(\) is unused\.$#'
+        - path: %currentWorkingDirectory%/src/Kernel.php
+          message: '#^Method App\\Kernel\:\:configureRoutes\(\) is unused\.$#'

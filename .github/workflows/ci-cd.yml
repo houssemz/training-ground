@@ -1,0 +1,238 @@
+name: shippeo.php-ms-template
+run-name: shippeo.php-ms-template ${{github.event_name}} ${{ github.ref_name }}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches:
+      - develop
+      - qa
+      - prod
+
+  pull_request:
+    branches:
+      - develop
+      - qa
+      - prod
+
+env:
+  APP_SHORT_IMAGE_NAME: php-ms-template-app
+  NGINX_SHORT_IMAGE_NAME: php-ms-template-nginx
+  WORKER_SHORT_IMAGE_NAME: php-ms-template-worker
+  CI_REPOSITORY: europe-docker.pkg.dev/infra-shippeo-backbone-aa33/backbone-shippeo-cache-docker-registry-europe
+  STABLE_REPOSITORY: europe-docker.pkg.dev/infra-shippeo-backbone-aa33/backbone-shippeo-core-docker-registry-europe
+
+jobs:
+  configure:
+    runs-on: [self-hosted, small]
+    outputs:
+      image_tag: ${{ steps.COMPUTE_VERSION.outputs.version }}-${{ steps.COMPUTE_FINGERPRINT.outputs.fingerprint }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Extract fingerprint
+        id: COMPUTE_FINGERPRINT
+        shell: bash
+        run: echo "fingerprint=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+      - uses: paulhatch/semantic-version@master
+        id: COMPUTE_VERSION
+        with:
+          tag_prefix: v
+          major_pattern: "/^[Bb][Rr][Ee][Aa][Kk][Ii][Nn][Gg]/"
+          minor_pattern: "/^[Ff][Ee][Aa][Tt]/"
+          version_format: "${major}.${minor}.${patch}"
+          bump_each_commit: true
+
+  build-dev:
+    needs:
+      - configure
+    runs-on: [self-hosted, large]
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    container:
+      image: europe-docker.pkg.dev/infra-shippeo-backbone-aa33/backbone-shippeo-core-docker-registry-europe/shared-gha:latest
+      credentials:
+        username: _json_key_base64
+        password: "${{ secrets.ARTIFACT_REGISTRY_PASSWORD}}"
+    outputs:
+      app_dev_image_name: ${{ steps.EXPORT_IMAGE_NAMES.outputs.app_dev_image_name }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Artifact authentication
+        uses: shippeo/tooling-github-action/.github/actions/artifact-authentication@main
+        with:
+          account: github-core-e8ca@infra-shippeo-backbone-aa33.iam.gserviceaccount.com
+      - name: Build image
+        uses: ./.github/actions/build-image
+        with:
+          github_token: ${{ secrets.TOOLING_GITHUB_ACTION }}
+          php_packages_user: ${{ secrets.PHP_PACKAGES_USER }}
+          php_packages_password: ${{ secrets.PHP_PACKAGES_PASSWORD }}
+          cache_scope: "${{ env.APP_SHORT_IMAGE_NAME }}-ci"
+          tag: "${{ env.CI_REPOSITORY }}/${{ env.APP_SHORT_IMAGE_NAME }}-ci:${{ needs.configure.outputs.image_tag }}"
+          target: app
+          app_version: ${{ needs.configure.outputs.image_tag }}
+          dockerfile: Dockerfile.dev
+      - name: Export image names
+        id: EXPORT_IMAGE_NAMES
+        run: |
+          echo "app_dev_image_name=${{ env.CI_REPOSITORY }}/${{ env.APP_SHORT_IMAGE_NAME }}-ci:${{ needs.configure.outputs.image_tag }}" >> $GITHUB_OUTPUT
+
+  test-lint:
+    needs:
+      - build-dev
+    runs-on: [self-hosted, medium]
+    container:
+      image: ${{ needs.build-dev.outputs.app_dev_image_name }}
+      credentials:
+        username: _json_key_base64
+        password: "${{ secrets.ARTIFACT_REGISTRY_PASSWORD}}"
+    steps:
+      - name: Lint tests
+        working-directory: /srv/app
+        run: task test-lint
+
+  test-static-analysis:
+    needs:
+      - build-dev
+    runs-on: [self-hosted, medium]
+    container:
+      image: ${{ needs.build-dev.outputs.app_dev_image_name }}
+      credentials:
+        username: _json_key_base64
+        password: "${{ secrets.ARTIFACT_REGISTRY_PASSWORD}}"
+    steps:
+      - name: Static analysis tests
+        working-directory: /srv/app
+        run: task test-static-analysis
+
+  test-unit:
+    needs:
+      - build-dev
+    runs-on: [self-hosted, medium]
+    container:
+      image: ${{ needs.build-dev.outputs.app_dev_image_name }}
+      credentials:
+        username: _json_key_base64
+        password: "${{ secrets.ARTIFACT_REGISTRY_PASSWORD}}"
+    steps:
+      - name: Unit tests
+        working-directory: /srv/app
+        run: task test-unit
+
+  test-functional:
+    name: test-functional
+    needs:
+      - build-dev
+    runs-on: [self-hosted, large]
+    container:
+      image: ${{ needs.build-dev.outputs.app_dev_image_name }}
+      credentials:
+        username: _json_key_base64
+        password: "${{ secrets.ARTIFACT_REGISTRY_PASSWORD}}"
+    env:
+      CACHE_DSN: "redis://redis:6379/1"
+      AMQP_DSN: amqp://gha-user:gha-pwd@rabbitmq:5672
+      DB_DSN: "postgres://gha-user:gha-pwd@postgres:5432/app?serverVersion=14&charset=utf8"
+    services:
+      redis:
+        # Docker Hub image
+        image: redis:5.0.5
+        # Set health checks to wait until redis has started
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      postgres:
+        image: postgres:14.1-alpine
+        env:
+          POSTGRES_DB: app
+          POSTGRES_USER: gha-user
+          POSTGRES_PASSWORD: gha-pwd
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Functional tests
+        working-directory: /srv/app
+        run: task test-functional
+
+  build-prod:
+    if: "github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/qa' || github.ref == 'refs/heads/prod'"
+    needs:
+      - configure
+      - test-lint
+      - test-static-analysis
+      - test-unit
+      - test-functional
+    runs-on: [self-hosted, large]
+    permissions:
+      contents: 'read'
+      id-token: 'write'
+    container:
+      image: europe-docker.pkg.dev/infra-shippeo-backbone-aa33/backbone-shippeo-core-docker-registry-europe/shared-gha:latest
+      credentials:
+        username: _json_key_base64
+        password: "${{ secrets.ARTIFACT_REGISTRY_PASSWORD}}"
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      - name: Artifact authentication
+        uses: shippeo/tooling-github-action/.github/actions/artifact-authentication@main
+        with:
+          account: github-core-e8ca@infra-shippeo-backbone-aa33.iam.gserviceaccount.com
+      - name: Extract branch name
+        shell: sh
+        id: extract_branch
+        run: echo "branch=$(echo ${GITHUB_REF##*/})" >> $GITHUB_OUTPUT
+      - name: Build and push APP image
+        uses: ./.github/actions/build-image
+        with:
+          github_token: ${{ secrets.TOOLING_GITHUB_ACTION }}
+          php_packages_user: ${{ secrets.PHP_PACKAGES_USER }}
+          php_packages_password: ${{ secrets.PHP_PACKAGES_PASSWORD }}
+          cache_scope: ${{ env.APP_SHORT_IMAGE_NAME }}-production
+          tag: "${{ env.STABLE_REPOSITORY }}/${{ env.APP_SHORT_IMAGE_NAME }}-${{ steps.extract_branch.outputs.branch }}:${{ needs.configure.outputs.image_tag }}"
+          target: app
+          app_version: ${{ needs.configure.outputs.image_tag }}
+          dockerfile: Dockerfile.prod
+      - name: Build and push NGINX image
+        uses: ./.github/actions/build-image
+        with:
+          github_token: ${{ secrets.TOOLING_GITHUB_ACTION }}
+          php_packages_user: ${{ secrets.PHP_PACKAGES_USER }}
+          php_packages_password: ${{ secrets.PHP_PACKAGES_PASSWORD }}
+          cache_scope: ${{ env.NGINX_SHORT_IMAGE_NAME }}-production
+          tag: "${{ env.STABLE_REPOSITORY }}/${{ env.NGINX_SHORT_IMAGE_NAME }}-${{ steps.extract_branch.outputs.branch }}:${{ needs.configure.outputs.image_tag }}"
+          target: nginx
+          app_version: ${{ needs.configure.outputs.image_tag }}
+          dockerfile: Dockerfile.prod
+      - name: Build and push WORKER image
+        uses: ./.github/actions/build-image
+        with:
+          github_token: ${{ secrets.TOOLING_GITHUB_ACTION }}
+          php_packages_user: ${{ secrets.PHP_PACKAGES_USER }}
+          php_packages_password: ${{ secrets.PHP_PACKAGES_PASSWORD }}
+          cache_scope: ${{ env.WORKER_SHORT_IMAGE_NAME }}-production
+          tag: "${{ env.STABLE_REPOSITORY }}/${{ env.WORKER_SHORT_IMAGE_NAME }}-${{ steps.extract_branch.outputs.branch }}:${{ needs.configure.outputs.image_tag }}"
+          target: worker
+          app_version: ${{ needs.configure.outputs.image_tag }}
+          dockerfile: Dockerfile.prod
+
+  call-renovate-v2:
+    needs: build-prod
+    name: Call Renovate v2
+    uses: shippeo/tooling-github-action/.github/workflows/renovate-with-repo.yml@main
+    with:
+      repo: shippeo/shippeo.argocd-shippeo
+    secrets:
+      RENOVATE_SECRET: ${{ secrets.RENOVATE_SECRET }}

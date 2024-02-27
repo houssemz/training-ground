@@ -1,0 +1,61 @@
+services:
+  app.monitoring.monolog.json_formatter:
+    class: Monolog\Formatter\JsonFormatter
+    arguments: [1, true, true, false, false]
+
+monolog:
+  channels:
+    - deprecation
+  handlers:
+    main:
+      type: fingers_crossed
+      action_level: '%env(MONOLOG_FINGERS_CROSSED_ACTION_LEVEL)%'
+      buffer_size: 100
+      stop_buffering: false
+      process_psr_3_messages: false
+      channels: ["!deprecation", "!event"]
+      handler: main_stream
+    main_stream:
+      type: stream
+      process_psr_3_messages: false
+      path: php://stderr
+      level: info
+    deprecation_stream:
+      type: stream
+      process_psr_3_messages: false
+      channels: [deprecation]
+      path: php://stderr
+
+when@dev:
+  monolog:
+    handlers:
+      console:
+        type: console
+        process_psr_3_messages: false
+        channels: ["!event", "!doctrine"]
+      main:
+        action_level: debug
+      main_stream:
+        level: debug
+      server_log:
+        type: server_log
+        host: 0:9911
+        process_psr_3_messages: false
+
+when@test:
+  monolog:
+    handlers:
+      main:
+        action_level: error
+        excluded_http_codes: [400, 401, 403, 404, 405]
+        channels: ["!event"]
+      test:
+        type: test
+
+when@prod:
+  monolog:
+    handlers:
+      main_stream:
+        formatter: app.monitoring.monolog.json_formatter
+      deprecation_stream:
+        formatter: app.monitoring.monolog.json_formatter
