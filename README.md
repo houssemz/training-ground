@@ -1,5 +1,21 @@
 # Shippeo's Training Ground
 
+- [Getting Started](#getting-started)
+  - [List of commands](#list-of-commands)
+    - [Commands syntax:](#commands-syntax)
+      - [Start/stop/restart/clean all services:](#startstoprestartclean-all-services)
+      - [Service status:](#service-status)
+      - [Launch a docker-compose command:](#launch-a-docker-compose-command)
+      - [Launch all tests:](#launch-all-tests)
+      - [Start/stop/restart/clean a specific service:](#startstoprestartclean-a-specific-service)
+      - [Enter a service container:](#enter-a-service-container)
+      - [Open a service in the browser (if available):](#open-a-service-in-the-browser-if-available)
+      - [Launch a service tests suite in parallel (if available):](#launch-a-service-tests-suite-in-parallel-if-available)
+- [Usage](#usage)
+  - [Start project](#start-project)
+  - [Add Data](#add-data)
+
+
 ## Getting Started
 
 1. If not already done, [install Docker Compose](https://docs.docker.com/compose/install/)
@@ -8,51 +24,6 @@
 2. If not already done, [install taskfile.dev](https://taskfile.dev/#/installation)
 4. Setup docker registry path in CI files
 5. Open your command line interface in the project directory and run `task`
-
-### Enable bash completion for Task
-
-#### On linux:
-
-Create a file in your home directory: `~/.bash_completion`
-```bash
-#/usr/bin/env bash
-
-_task_completion()
-{
-  local scripts;
-  local curr_arg;
-
-  # Remove colon from word breaks
-  COMP_WORDBREAKS=${COMP_WORDBREAKS//:}
-
-  scripts=$(task --list-all | sed '1d' | sed 's/^\* //' | sed 's/:\s*$//');
-
-  curr_arg="${COMP_WORDS[COMP_CWORD]:-"."}"
-
-  # Do not accept more than 1 argument
-  if [ "${#COMP_WORDS[@]}" != "2" ]; then
-    return
-  fi
-
-  COMPREPLY=($(compgen -c | echo "$scripts" | grep $curr_arg));
-}
-
-complete -F _task_completion task
-```
-
-Edit your bashrc file: `~/bashrc` and add the following lines:
-
-```bash
-if [ -f ~/.bash_completion ]; then
-    . ~/.bash_completion
-fi
-```
-
-Finally source the bashrc file from your terminal:
-
-```bash
-. ~/bashrc
-```
 
 ### List of commands
 
@@ -121,4 +92,17 @@ task {short-service-name}:docker:browser
 ```bash
 task {short-service-name}:test
 # eg. task app:test
+```
+
+## Usage
+### Start project
+To start project (or reset it) you can execute the followings command:
+```bash
+task docker:clean && task docker:start && task app:postgres-db-migrate
+```
+
+### Add Data
+You can generate an order using the following cli:
+```bash
+php bin/console app:mock:order-create
 ```
