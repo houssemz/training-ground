@@ -26,7 +26,6 @@
         "phpstan/phpdoc-parser": "^1.5",
         "psr/cache": "^3.0",
         "psr/log": "^3.0",
-        "shippeo/metrics-bundle": "~0.5.0",
         "symfony/amqp-messenger": "~6.4.0",
         "symfony/asset": "~6.4.0",
         "symfony/browser-kit": "~6.4.0",
@@ -72,9 +71,8 @@
         "phpstan/phpstan-beberlei-assert": "^1.0",
         "phpstan/phpstan-deprecation-rules": "^1.0",
         "phpstan/phpstan-symfony": "^1.1",
-        "phpunit/phpunit": "^10.5",
         "symfony/css-selector": "~6.4.0",
-        "symfony/phpunit-bridge": "^6.0",
+        "symfony/phpunit-bridge": "~6.4.0",
         "symfony/var-dumper": "~6.4.0",
         "symfony/web-profiler-bundle": "~6.4.0",
         "zenstruck/messenger-test": "^1.4"
@@ -91,15 +89,6 @@
     },
     "conflict": {
         "symfony/symfony": "*"
-    },
-    "repositories": {
-        "shippeo": {
-            "type": "composer",
-            "url": "https://php-packages.shippeo.cloud",
-            "only": [
-                "shippeo/*"
-            ]
-        }
     },
     "minimum-stability": "stable",
     "prefer-stable": true,
@@ -134,10 +123,6 @@
         "symfony": {
             "allow-contrib": false,
             "docker": false,
-            "endpoint": [
-                "https://api.github.com/repos/shippeo/symfony-flex-recipes/contents/index.json",
-                "flex://defaults"
-            ],
             "require": "6.4.*"
         }
     },

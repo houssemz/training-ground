@@ -1,15 +1,6 @@
 name: Build and push image
 description: "Build image"
 inputs:
-  github_token:
-    description: 'GITHUB_TOKEN to use'
-    required: true
-  php_packages_user:
-    description: 'Username for private packages repository'
-    required: true
-  php_packages_password:
-    description: 'Password for private packages repository'
-    required: true
   context:
     description: 'context path'
     required: false
@@ -27,19 +18,10 @@ inputs:
   app_version:
     description: 'App version'
     required: false
-  cache_scope:
-    description: 'Cache scope'
-    required: true
 
 runs:
   using: "composite"
   steps:
-    - name: Create auth.json
-      uses: ./.github/actions/composer-github-auth
-      with:
-        github_token: ${{ inputs.github_token }}
-        php_packages_user: ${{ inputs.php_packages_user }}
-        php_packages_password: ${{ inputs.php_packages_password }}
     - name: Setup docker context for buildx
       id: buildx-context
       shell: sh
@@ -61,9 +43,6 @@ runs:
         target: ${{ inputs.target }}
         pull: true
         build-args: |
-          BUILD_MODE=${{ inputs.build_mode }}
+          BUILD_MODE=development
           APP_VERSION=${{ inputs.app_version }}
-        secret-files: |
-          composer_auth=./srv/app/auth.json
-        cache-from: type=gha,scope=${{ inputs.cache_scope }}
-        cache-to: type=gha,mode=max,scope=${{ inputs.cache_scope }}
+          IMAGE_SOURCE=${{ github.server_url }}/${{ github.repository }}

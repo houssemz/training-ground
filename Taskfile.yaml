@@ -47,34 +47,7 @@ tasks:
 
   configure:
     run: once
-    deps: ["dotenv:configure", "xdebug-dotenv:configure", "docker:configure", "{{ .OS_NAME }}:configure", "composer-auth:configure"]
-
-  composer-auth:configure:
-    run: once
-    cmds:
-      - cmd: |
-          echo "Need a github token to pull private package"
-          read -p "GITHUB_TOKEN: " TOKEN
-          echo "Need private packages credentials to pull private package"
-          read -p "PHP_PACKAGES_USER: " PHP_PACKAGES_USER
-          read -p "PHP_PACKAGES_PASSWORD: " PHP_PACKAGES_PASSWORD
-          cat <<EOF > srv/app/auth.json 
-          {
-            "github-oauth": {
-              "github.com": "$GITHUB_TOKEN"
-            },
-            "http-basic": {
-              "php-packages.shippeo.cloud": {
-                "username": "$PHP_PACKAGES_USER",
-                "password": "$PHP_PACKAGES_PASSWORD"
-              }
-            }
-          }
-          EOF
-        silent: true
-    interactive: true
-    status:
-      - test -f srv/app/auth.json
+    deps: ["dotenv:configure", "xdebug-dotenv:configure", "docker:configure", "{{ .OS_NAME }}:configure"]
 
   dotenv:configure:
     run: once

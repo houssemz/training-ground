@@ -14,8 +14,6 @@ services:
       args:
         <<: *common-args
       target: app
-      secrets:
-        - composer_auth
     restart: unless-stopped
     environment:
       APP_DISABLED_EXTENSIONS: "${APP_DISABLED_EXTENSION}"
@@ -44,8 +42,6 @@ services:
       args:
         <<: *common-args
       target: worker
-      secrets:
-        - composer_auth
     restart: unless-stopped
     environment:
       WORKER_TRANSPORT: "my-first-transport my-second-transport"
@@ -67,8 +63,6 @@ services:
       context: .
       dockerfile: Dockerfile
       target: nginx
-      secrets:
-        - composer_auth
     environment:
       UPSTREAM: "${UPSTREAM}"
     depends_on:
@@ -157,7 +151,3 @@ volumes:
   postgres-data: ~
   rabbitmq-data: ~
   victoria-metrics-data: ~
-
-secrets:
-  composer_auth:
-    file: ./srv/app/auth.json

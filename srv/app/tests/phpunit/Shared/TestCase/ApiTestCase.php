@@ -22,6 +22,13 @@ class ApiTestCase extends WebTestCase
     use JsonAssertions;
     use TransactionalBehavior;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        static::createClient();
+    }
+
     protected static function createAuthenticatedClient(string|UserInterface $user): AbstractBrowser
     {
         $client = self::client(parent::createClient());

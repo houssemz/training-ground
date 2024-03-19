@@ -1,5 +1,6 @@
 <?php
-$finder = \PhpCsFixer\Finder::create()->in(['src', 'config', 'tests']);
+
+$finder = \PhpCsFixer\Finder::create()->in(['src', 'config']);
 
 return (new \PhpCsFixer\Config())
     ->setRules([
@@ -7,10 +8,11 @@ return (new \PhpCsFixer\Config())
         '@Symfony:risky' => true,
         '@PHP83Migration' => true,
         '@DoctrineAnnotation' => true,
+
         // @Symfony code styles rules blacklisting:
         'method_chaining_indentation' => false,
         'no_singleline_whitespace_before_semicolons' => true,
-        'no_trailing_comma_in_list_call' => false,
+        'no_trailing_comma_in_singleline' => false,
         'php_unit_fqcn_annotation' => false,
         'phpdoc_align' => false,
         'phpdoc_annotation_without_dot' => false,
@@ -51,6 +53,7 @@ return (new \PhpCsFixer\Config())
             'only_booleans' => true,
             'position' => 'beginning',
         ],
+
         // Additional code style rules whitelisting:
         'ordered_class_elements' => [
             'order' => [
@@ -92,7 +95,7 @@ return (new \PhpCsFixer\Config())
         'no_alternative_syntax' => true,
         'no_superfluous_elseif' => true,
         'ordered_imports' => true,
-        'braces' => true,
+        'control_structure_braces' => true,
         'php_unit_test_case_static_method_calls' => ['call_type' => 'self'],
         'php_unit_set_up_tear_down_visibility' => true,
         'php_unit_no_expectation_annotation' => true,

@@ -11,7 +11,7 @@ final class <className> extends AbstractMigration
 {
     public function getDescription(): string
     {
-//        return 'shippeo/shippeo.issues#1234: Create new table "foo".';
+//        return 'JIRA PROJECT-NUMBER: Create new table "foo".';
     }
 
     public function up(Schema $schema): void

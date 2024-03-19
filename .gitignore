@@ -15,6 +15,7 @@ docker-compose.override.yaml
 **/nbproject/
 **/*.workspace
 **/*.code-workspace
+**/*.vscode/
 
 # Tools
 **/.task/

@@ -178,3 +178,4 @@ parameters:
 
     ReadDomain:
       - +SharedDomain
+      - +WriteDomain

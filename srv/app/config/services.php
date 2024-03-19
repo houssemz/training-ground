@@ -8,5 +8,5 @@ return function (ContainerConfigurator $container): void {
     $container->import('../src/Infrastructure/DependencyInjection/Symfony/config/*.php');
 
     $parameters = $container->parameters();
-    $parameters->set('container.dumper.inline_factories', true);
+    $parameters->set('.container.dumper.inline_factories', true);
 };

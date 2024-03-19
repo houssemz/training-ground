@@ -8,6 +8,7 @@ ARG COMPOSER_HOME=/home/www-data
 ARG OPENRESTY_VERSION=1.21.4.1
 ARG HOST_UID=1000
 ARG HOST_GID=1000
+
 #------------------------------------------------------------------------------
 # COMPOSER
 #------------------------------------------------------------------------------
@@ -522,7 +523,7 @@ WORKDIR ${APP_DIR}
 
 COPY srv/app/composer.json srv/app/composer.lock srv/app/symfony.lock ./
 
-RUN --mount=type=secret,id=composer_auth,target=/srv/app/auth.json set -eux; \
+RUN set -eux; \
     composer install -n --no-progress --ignore-platform-reqs --no-dev --prefer-dist --no-scripts --no-autoloader; \
     composer clear-cache; \
     mkdir -p var/cache var/log;
@@ -572,6 +573,7 @@ RUN set -eux; \
 FROM php-debug as app_development
 
 ARG APP_DIR
+ARG IMAGE_SOURCE
 
 ENV APP_DEBUG=1 \
 	APP_ENV=dev \
@@ -596,9 +598,11 @@ COPY --chown=www-data:www-data --from=source-code ${APP_DIR} ${APP_DIR}
 COPY --chown=www-data:www-data ${APP_DIR}/.env.* ${APP_DIR}/.php-cs-fixer.* ${APP_DIR}/.phpstan.* ${APP_DIR}/phpunit.* ${APP_DIR}/phpspec.* ${APP_DIR}/.yamllint.* ${APP_DIR}/Taskfile.* ${APP_DIR}/.composer-require-checker.* ${APP_DIR}/.deptrac.yaml ${APP_DIR}/
 COPY --chown=www-data:www-data ${APP_DIR}/tests ${APP_DIR}/tests
 
-RUN --mount=type=secret,id=composer_auth,mode=0444,target=/srv/app/auth.json set -eux; \
+RUN set -eux; \
     composer install -n --prefer-dist --no-scripts --no-progress --ignore-platform-reqs; \
     composer clear-cache;
+
+LABEL org.opencontainers.image.source=${IMAGE_SOURCE}
 #------------------------------------------------------------------------------
 
 #------------------------------------------------------------------------------
@@ -633,3 +637,4 @@ HEALTHCHECK NONE
 
 CMD ["sh", "-c", "bin/console messenger:consume $WORKER_TRANSPORT -n --sleep $WORKER_IDLE_TIME"]
 #------------------------------------------------------------------------------
+
