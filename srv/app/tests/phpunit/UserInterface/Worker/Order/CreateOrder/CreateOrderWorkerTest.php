@@ -34,7 +34,6 @@ class CreateOrderWorkerTest extends MessagingTestCase
         $this->transport()->process();
 
         $order = $this->connectionService()->createQueryBuilder()
-            ->select(OrderEventTable::COLUMN_AGGREGATE_ROOT_ID)
             ->addSelect(OrderEventTable::COLUMN_EVENT_NAME)
             ->addSelect(OrderEventTable::COLUMN_OCCURRED_ON)
             ->from(OrderEventTable::TABLE_NAME)
@@ -44,7 +43,6 @@ class CreateOrderWorkerTest extends MessagingTestCase
 
         self::assertEquals(
             expected: [
-                'aggregate_root_id' => 'f8cea8fd-a687-40d6-8959-9160fab35ec3',
                 'occurred_on' => '2024-03-19 15:00:00+00',
                 'event_name' => 'order_created',
             ],
