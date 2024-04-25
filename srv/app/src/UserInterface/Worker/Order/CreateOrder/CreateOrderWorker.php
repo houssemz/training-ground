@@ -12,7 +12,7 @@ use Symfony\Component\Messenger\Attribute\AsMessageHandler;
 class CreateOrderWorker
 {
     public function __construct(
-        private CommandBus $commandBus,
+        private readonly CommandBus $commandBus,
     ) {
     }
 

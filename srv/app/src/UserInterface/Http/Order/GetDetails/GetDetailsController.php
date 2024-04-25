@@ -10,13 +10,14 @@ use App\Domain\Read\OrderDetails\OrderDetails;
 use App\UserInterface\Http\Order\GetDetails\Output\OrderDetailsOutput;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
+use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Uid\Uuid;
 
 class GetDetailsController extends AbstractController
 {
     public function __construct(
-        private QueryBus $queryBus
+        private readonly QueryBus $queryBus
     ) {
     }
 
@@ -30,6 +31,6 @@ class GetDetailsController extends AbstractController
 
         $dto = OrderDetailsOutput::fromDomain($details);
 
-        return new JsonResponse($dto->normalize(), 200);
+        return new JsonResponse($dto->normalize(), Response::HTTP_OK);
     }
 }
